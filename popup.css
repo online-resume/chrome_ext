@@ -33,6 +33,10 @@ form { margin: 0; }
 .page-title { margin: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .muted { margin: 2px 0 8px; color: var(--ink-2); font-size: 12px; }
 
+.visa { margin: 0 0 8px; padding: 5px 8px; border-radius: 6px; background: var(--card); border: 1px solid var(--line); font-size: 12px; }
+.visa.no { border-color: var(--bad); background: var(--bad-soft); color: var(--bad); }
+.visa.yes { border-color: var(--good); background: var(--good-soft); color: var(--good); }
+
 label { display: block; flex: 1; min-width: 0; margin-bottom: 8px; color: var(--ink-2); font-size: 12px; }
 .row { display: flex; gap: 8px; }
 

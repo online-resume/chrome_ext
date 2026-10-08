@@ -5,6 +5,8 @@
 // address in chrome.storage and sent as `Authorization: Bearer`. The password is never kept. Each
 // user of the extension so works as their own app user, whoever is logged in to the app's page.
 
+import { sponsorship } from "./sponsorship.js";
+
 const DEFAULT_BASE = "http://localhost:8000";
 const MIN_TEXT = 200;   // the app refuses less: it cannot be a job description (serve.CLIP_MIN)
 const $ = (id) => document.getElementById(id);
@@ -124,7 +126,17 @@ function showSize() {
   const length = $("text").value.trim().length;
   $("size").textContent = `${length.toLocaleString()} characters`
     + (length < MIN_TEXT ? " - too short to be a job description" : "");
+  showVisa();
   showSend();
+}
+
+// What the text that will be sent says about visa sponsorship (sponsorship.js: rules, no model).
+const VISA_SAYS = { no: "Not offered", yes: "Offered", unknown: "Not mentioned" };
+function showVisa() {
+  const found = sponsorship($("text").value);
+  $("visa").className = `visa ${found.status}`;
+  $("visa").textContent = `Visa sponsorship: ${VISA_SAYS[found.status]}`
+    + (found.words ? ` - the posting says \u201c${found.words}\u201d` : "");
 }
 
 function showPage() {

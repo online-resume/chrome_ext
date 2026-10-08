@@ -64,7 +64,18 @@ that is open on this page**; the other choices (main part, whole page) are still
 Indeed has been checked on its live page. If one of the other sites still sends too much,
 select the job's text with the mouse before clicking the icon and choose **The text I selected**.
 
-## Jobs without visa sponsorship
+## Visa sponsorship
+
+As soon as the popup opens, a line under the page's name tells you what the job says:
+
+- **Offered** (green): the posting says sponsorship is available, or that visa holders are welcome.
+- **Not offered** (red): it says no sponsorship, rules out visas such as H1B, or takes citizens /
+  green card holders only.
+- **Not mentioned** (grey): the posting says nothing about it.
+
+The posting's own words are shown next to it. This is read by fixed rules on your computer, with
+no AI and nothing sent anywhere, so check the posting yourself when it matters: unusual wording
+can be missed.
 
 If your profiles are set to skip jobs that offer no visa sponsorship (in the app: a profile's
 Sources, *Skips no-sponsorship jobs*), the extension follows that. When you press Send on such a
@@ -94,6 +105,7 @@ own pages, the Web Store and PDF files cannot be read.
 
 - `manifest.json` - Manifest V3.
 - `extract.js` - runs in the page and returns its data.
+- `sponsorship.js` - the rules that read whether visa sponsorship is offered.
 - `popup.html`, `popup.css`, `popup.js` - the popup.
 
 No build step. After changing a file, press the reload arrow on the extension's card in
