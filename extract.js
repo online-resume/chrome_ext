@@ -45,9 +45,10 @@ globalThis.rbExtract = (light = false) => {
     copy.querySelectorAll("style, script, noscript, template").forEach((n) => n.remove());
     return tidy(copy.textContent);
   }
+  // the first of these that is on the page with words in it; each is a selector or a function that finds the element
   const first = (selectors) => {
     for (const selector of selectors || []) {
-      const node = document.querySelector(selector);
+      const node = typeof selector === "function" ? selector() : document.querySelector(selector);
       if (node && shown(node)) return node;
     }
     return null;
@@ -69,13 +70,39 @@ globalThis.rbExtract = (light = false) => {
       apply: ['[data-testid="viewjob-apply"]', '[data-testid="viewjob-indeed-apply"]', "#applyButtonLinkContainer a"],
       leave: '[data-testid^="job-card-"]',
       url: () => { const id = param("vjk", "jk"); return id && `${location.origin}/viewjob?jk=${encodeURIComponent(id)}`; } },
+    // LinkedIn has two pages. Signed out (checked on the live site, Oct 2026): .top-card-layout /
+    // .show-more-less-html__markup. Signed in (from its known structure; a signed-in page could
+    // not be opened to check): .job-details-jobs-unified-top-card / #job-details. Each list has
+    // the signed-in names first. Its Apply and Easy Apply are buttons without an address, so a
+    // role from LinkedIn usually has no apply link and its own link leads to the job.
     { host: /(^|\.)linkedin\.com$/,
-      panel: ["#job-details", ".jobs-description__content", ".jobs-description-content__text", ".show-more-less-html__markup"],
-      title: [".job-details-jobs-unified-top-card__job-title", ".jobs-unified-top-card__job-title", ".top-card-layout__title"],
-      company: [".job-details-jobs-unified-top-card__company-name", ".jobs-unified-top-card__company-name", ".topcard__org-name-link"],
-      location: [".topcard__flavor--bullet"],
-      apply: ["a.jobs-apply-button", "a.apply-button", ".top-card-layout__cta-container a"],
-      url: () => { const id = param("currentJobId"); return id && `${location.origin}/jobs/view/${encodeURIComponent(id)}/`; } },
+      panel: ["#job-details", ".jobs-description__content", ".jobs-description-content__text", ".jobs-box__html-content",
+        ".show-more-less-html__markup", ".description__text",
+        // whatever the page's elements are called: the block under the heading "About the job"
+        () => {
+          let node = titled(document, /^about the job$/i)?.parentElement;
+          while (node && node.parentElement && node !== document.body && shown(node).length < 300) node = node.parentElement;
+          return node && node !== document.body ? node : null;
+        }],
+      // the job's facts shown outside its description (level, employment type, workplace, pay)
+      more: [".job-details-fit-level-preferences", ".job-details-jobs-unified-top-card__job-insight", ".description__job-criteria-list"],
+      title: [".job-details-jobs-unified-top-card__job-title", ".jobs-unified-top-card__job-title", ".top-card-layout__title", ".topcard__title",
+        'h1 a[href*="/jobs/view/"]', ".jobs-search__job-details--container h1", "main h1"],
+      company: [".job-details-jobs-unified-top-card__company-name", ".jobs-unified-top-card__company-name", ".topcard__org-name-link",
+        '.jobs-search__job-details--container a[href*="/company/"]', 'main a[href*="/company/"]'],
+      // signed in it is the first part of one line: "Dallas, TX · 1 week ago · 91 applicants"
+      location: () => shown(first([".topcard__flavor--bullet"])) || shown(first([".job-details-jobs-unified-top-card__primary-description-container",
+        ".job-details-jobs-unified-top-card__tertiary-description-container", ".jobs-unified-top-card__bullet"])).split(/\s*·\s*|\n/)[0],
+      apply: ["a.jobs-apply-button", "a.apply-button", ".top-card-layout__cta-container a.apply-button"],
+      url: () => {
+        // the job's number: in the address (?currentJobId=, /jobs/view/<number> or /jobs/view/<words>-<number>),
+        // else on the open job's own title link, else on the card that is marked as open in the list
+        const id = param("currentJobId") || /\/jobs\/view\/(?:[^/?]*-)?(\d+)/.exec(location.pathname)?.[1]
+          || /-(\d+)(?:[/?]|$)/.exec(document.querySelector("a.topcard__link")?.getAttribute("href") || "")?.[1]
+          || /(\d+)$/.exec(document.querySelector(".job-search-card--active, .jobs-search-results-list__list-item--active [data-job-id]")
+            ?.getAttribute("data-entity-urn") || "")?.[1];
+        return id && `https://www.linkedin.com/jobs/view/${id}/`;
+      } },
     // Dice (checked on the live site, Oct 2026): the search page shows the open job in a pane, the
     // job's own page in <main>. Both hold other things too (a match score, a job alert, similar
     // jobs): `keep` and `drop` name what belongs to the job and what does not (see panelText).
@@ -180,6 +207,11 @@ globalThis.rbExtract = (light = false) => {
   // The open job's text. A site may put other postings inside the same panel ("more jobs like
   // this"): the parts of the panel that hold what `leave` names are left out.
   function panelText() {
+    if (known && site.more) {   // facts a site shows beside the description: put under it
+      const extra = site.more.map((selector) => document.querySelector(selector))
+        .filter((node) => node && !panel.contains(node) && !node.contains(panel)).map(shown).filter(Boolean);
+      return [shown(panel), ...new Set(extra)].join("\n\n");
+    }
     if (known && site.drop) return textWithout(panel, outside(panel, site.keep(panel), site.drop(panel)));
     if (!known || !site.leave || !panel.querySelector(site.leave)) return shown(panel);
     return tidy([...panel.children].filter((part) => !part.matches(site.leave) && !part.querySelector(site.leave))
