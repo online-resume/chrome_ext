@@ -1,0 +1,74 @@
+/* The popup uses the app's own colours (prod/frontend/css/theme.css) so it reads as part of it. */
+:root {
+  --ink: #0f1b33;
+  --ink-2: #33415c;
+  --bg: #f4f6fb;
+  --card: #ffffff;
+  --line: #d5dceb;
+  --brand: #1d4fd8;
+  --brand-strong: #163ba8;
+  --brand-soft: #e8effe;
+  --good: #0f7a4a;
+  --good-soft: #e3f6ec;
+  --bad: #b3261e;
+  --bad-soft: #fdecea;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  width: 380px;
+  margin: 0;
+  padding: 12px 14px 10px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+h1 { flex: 1; margin: 0; font-size: 15px; }
+
+.page-title { margin: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.muted { margin: 2px 0 8px; color: var(--ink-2); font-size: 12px; }
+
+label { display: block; flex: 1; min-width: 0; margin-bottom: 8px; color: var(--ink-2); font-size: 12px; }
+.row { display: flex; gap: 8px; }
+
+input, select, textarea {
+  display: block;
+  width: 100%;
+  margin-top: 3px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+}
+textarea { resize: vertical; font-size: 12px; }
+input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+
+button {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+button:hover { border-color: var(--brand); }
+button:disabled { opacity: 0.55; cursor: default; }
+button.primary { width: 100%; margin-bottom: 8px; border-color: var(--brand); background: var(--brand); color: #fff; font-weight: 600; }
+button.primary:hover:not(:disabled) { background: var(--brand-strong); }
+button.link { flex: none; padding: 2px 4px; border: 0; background: none; color: var(--brand); }
+
+.note { margin: 10px 0 0; padding: 8px 10px; border-radius: 6px; background: var(--brand-soft); }
+.note.good { background: var(--good-soft); color: var(--good); }
+.note.bad { background: var(--bad-soft); color: var(--bad); }
+.note button { display: block; margin-top: 6px; }
+
+details { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
+summary { color: var(--ink-2); cursor: pointer; }
+details label { margin-top: 8px; }
