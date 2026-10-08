@@ -52,6 +52,8 @@ globalThis.rbExtract = (light = false) => {
     }
     return null;
   };
+  // the heading inside `root` whose words match (a part of a page that has no name of its own)
+  const titled = (root, words) => [...root.querySelectorAll("h1, h2, h3, h4")].find((h) => words.test(tidy(h.textContent)));
   const param = (...names) => names.map((n) => new URLSearchParams(location.search).get(n)).find(Boolean);
 
   // ---- job boards that show a list of postings beside the one that is open: where that one
@@ -74,10 +76,25 @@ globalThis.rbExtract = (light = false) => {
       location: [".topcard__flavor--bullet"],
       apply: ["a.jobs-apply-button", "a.apply-button", ".top-card-layout__cta-container a"],
       url: () => { const id = param("currentJobId"); return id && `${location.origin}/jobs/view/${encodeURIComponent(id)}/`; } },
+    // Dice (checked on the live site, Oct 2026): the search page shows the open job in a pane, the
+    // job's own page in <main>. Both hold other things too (a match score, a job alert, similar
+    // jobs): `keep` and `drop` name what belongs to the job and what does not (see panelText).
     { host: /(^|\.)dice\.com$/,
-      panel: ['[data-testid="jobDescriptionHtml"]', "#jobDescription"],
-      apply: ['a[data-cy="apply-button"]', "apply-button-wc a"],
-      title: ['[data-cy="jobTitle"]'], company: ['[data-cy="companyNameLink"]'], location: ['[data-cy="location"]'] },
+      panel: ['[data-testid="job-detail-pane"]', 'main:has([data-testid="job-detail-header-card"])',
+        '[data-testid="jobDescriptionHtml"]', "#jobDescription"],
+      title: ['[data-testid="job-detail-header-card"] h1', '[data-cy="jobTitle"]'],
+      company: ['[data-testid="job-detail-header-card"] a[href*="/company-profile/"]', '[data-cy="companyNameLink"]'],
+      // one line of the header: "Addison, TX, US • Posted 1 day ago • Updated ..."
+      location: () => shown(first(['[data-testid="job-detail-header-card"]'])).split("\n")
+        .find((line) => /•\s*Posted/i.test(line))?.split("•")[0].trim() || shown(first(['[data-cy="location"]'])),
+      apply: ['[data-testid="apply-button"]', 'a[data-cy="apply-button"]', "apply-button-wc a"],
+      keep: (panel) => [panel.querySelector('[data-testid="job-detail-header-card"]'), titled(panel, /^job details$/i)],
+      drop: (panel) => [...panel.querySelectorAll('[data-testid="job-card"], [data-testid="job-detail-job-alert"], section[aria-label="Related jobs"]'),
+        titled(panel, /job match score/i), titled(panel, /^similar jobs$/i)],
+      url: () => {
+        const own = document.querySelector('[data-testid="job-detail-open-in-new-tab-btn"]')?.getAttribute("href");
+        return own ? absolute(own) : location.pathname.startsWith("/job-detail/") ? location.origin + location.pathname : null;
+      } },
     { host: /(^|\.)glassdoor\.[a-z.]+$/,
       panel: ['[class*="JobDetails_jobDescription"]', '[data-test="jobDescriptionContent"]'],
       title: ['[data-test="job-title"]'], company: ['[data-test="employer-name"]'], location: ['[data-test="location"]'] },
@@ -97,7 +114,8 @@ globalThis.rbExtract = (light = false) => {
       if (node.getClientRects().length && shown(node).length > Math.max(199, shown(panel).length)) panel = node;
     }
   }
-  const onPage = { title: shown(first(site?.title)), company: shown(first(site?.company)), location: shown(first(site?.location)) };
+  const said = (where) => (typeof where === "function" ? tidy(where()) : shown(first(where)));
+  const onPage = { title: said(site?.title), company: said(site?.company), location: said(site?.location) };
   if (known && site.around && !(onPage.company && onPage.location)) {
     // company and location are lines of one block, with a rating between them on some postings:
     // of the lines that are words, the first is the company and the next one the location
@@ -119,9 +137,50 @@ globalThis.rbExtract = (light = false) => {
     return button ? { url: absolute(button.getAttribute("href")), label: tidy(button.innerText || button.getAttribute("aria-label")).slice(0, 80) || "Apply" } : null;
   }
 
+  // For a panel that mixes the job with other things. Each thing a site names in `drop` is left
+  // out together with as much around it as does not hold a part of the job (`keep`): from a
+  // "similar job" card up to the whole "Similar Jobs" block, but never the job's own text.
+  function outside(root, keep, drop) {
+    const wanted = keep.filter(Boolean);
+    const gone = new Set();
+    for (let node of drop.filter(Boolean)) {
+      while (node.parentElement && node.parentElement !== root && !wanted.some((part) => node.parentElement.contains(part))) {
+        node = node.parentElement;
+      }
+      if (!wanted.some((part) => node.contains(part))) gone.add(node);
+    }
+    return gone;
+  }
+
+  // The text of `root` as a person reads it, without the parts in `gone` and without what is not
+  // drawn: like innerText, which cannot leave parts out. Every block starts a new line; paragraphs
+  // and headings (PARAS, marked with \r while walking) get an empty line around them.
+  const BLOCKS = new Set(["DIV", "P", "LI", "UL", "OL", "H1", "H2", "H3", "H4", "H5", "H6", "SECTION", "ARTICLE",
+    "HEADER", "FOOTER", "TABLE", "TR", "DL", "DT", "DD", "BLOCKQUOTE", "PRE", "HR"]);
+  const PARAS = new Set(["P", "H1", "H2", "H3", "H4", "H5", "H6", "UL", "OL", "TABLE"]);
+  function textWithout(root, gone) {
+    const out = [];
+    (function walk(node) {
+      for (const child of node.childNodes) {
+        if (child.nodeType === Node.TEXT_NODE) { out.push(child.nodeValue.replace(/\s+/g, " ")); continue; }
+        if (child.nodeType !== Node.ELEMENT_NODE || gone.has(child)) continue;
+        if (["STYLE", "SCRIPT", "NOSCRIPT", "TEMPLATE", "SVG", "svg", "BUTTON"].includes(child.tagName)) continue;
+        if (root.getClientRects().length && !child.getClientRects().length && child.tagName !== "BR") continue;   // not drawn
+        const edge = PARAS.has(child.tagName) ? "\r" : BLOCKS.has(child.tagName) || child.tagName === "BR" ? "\n" : "";
+        out.push(edge, child.tagName === "LI" ? "- " : "");
+        walk(child);
+        out.push(edge);
+      }
+    })(root);
+    // a run of line ends is one line end, or an empty line when a paragraph or heading is among them
+    return tidy(out.join("").replace(/[ \t]*[\n\r][ \t\n\r]*/g, (run) => (run.includes("\r") ? "\n\n" : "\n"))
+      .replace(/^- *\n+/gm, "- "));
+  }
+
   // The open job's text. A site may put other postings inside the same panel ("more jobs like
   // this"): the parts of the panel that hold what `leave` names are left out.
   function panelText() {
+    if (known && site.drop) return textWithout(panel, outside(panel, site.keep(panel), site.drop(panel)));
     if (!known || !site.leave || !panel.querySelector(site.leave)) return shown(panel);
     return tidy([...panel.children].filter((part) => !part.matches(site.leave) && !part.querySelector(site.leave))
       .map(shown).filter(Boolean).join("\n\n"));

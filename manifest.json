@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AI Resume Builder - Page Clipper",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "Sends the job you have open to your AI Resume Builder as a role, and offers to on job sites.",
   "icons": {
     "16": "icons/icon-16.png",

@@ -102,7 +102,7 @@ icon: only that job is read and sent, not the list or the "other jobs" suggestio
 title, company and location are filled in for you. "Text to send" then reads **Only the job
 that is open on this page**; the other choices (main part, whole page) are still there.
 
-Indeed has been checked on its live page. If one of the other sites still sends too much,
+Indeed and Dice have been checked on their live pages. If one of the other sites still sends too much,
 select the job's text with the mouse before clicking the icon and choose **The text I selected**.
 
 ## Visa sponsorship
