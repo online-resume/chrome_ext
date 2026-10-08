@@ -1,6 +1,10 @@
-// Runs inside the page the user has open (popup.js injects it on a click, so the extension reads a
-// page only when asked). Its last expression is what popup.js receives: everything on the page as
-// plain data. Nothing here changes the page or calls a server.
+// Runs inside a page and defines rbExtract(), which reads the page as plain data. Nothing here
+// changes the page or calls a server. Two callers:
+//   popup.js  injects this file when the user clicks the icon, then calls rbExtract(): everything
+//             on the page (the Result below)
+//   watch.js  on the job sites in manifest.json -> content_scripts, calls rbExtract(true) every
+//             few seconds: only the job that is open in a known site's panel, as
+//             {url, title, company, location, text, apply} - or null when no job is open
 //
 // Result: {url, page_url, title, language, captured_at, selection, job, meta, structured_data,
 //          apply, headings, text: {panel, job, main, full}, links, images, tables, counts}
@@ -12,7 +16,7 @@
 //   apply {url, label}: where the page's Apply button goes (null when it has none, or when the
 //         button opens a form on the page instead of a link)
 //   url   the address of that one job when the site has one (SITES), else the page's address
-(() => {
+globalThis.rbExtract = (light = false) => {
   const LIMITS = { links: 2000, images: 1000, tables: 100, rows: 500, text: 400000 };
   const tidy = (value) => String(value ?? "").replace(/ /g, " ").replace(/[ \t]+/g, " ")
     .replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim();
@@ -87,6 +91,7 @@
   const site = SITES.find((entry) => entry.host.test(location.hostname));
   let panel = first(site?.panel);
   const known = Boolean(panel);
+  if (light && !known) return null;
   if (!panel) {
     for (const node of document.querySelectorAll(GENERIC)) {
       if (node.getClientRects().length && shown(node).length > Math.max(199, shown(panel).length)) panel = node;
@@ -120,6 +125,10 @@
     if (!known || !site.leave || !panel.querySelector(site.leave)) return shown(panel);
     return tidy([...panel.children].filter((part) => !part.matches(site.leave) && !part.querySelector(site.leave))
       .map(shown).filter(Boolean).join("\n\n"));
+  }
+
+  if (light) {
+    return { url: site.url?.() || location.href, ...onPage, text: panelText().slice(0, LIMITS.text), apply: applyLink() };
   }
 
   // ---- the page's structured data (JSON-LD): job sites publish the posting there for search engines
@@ -232,4 +241,4 @@
     tables,
     counts: { words: full ? full.split(/\s+/).length : 0, links: links.length, images: images.length, tables: tables.length },
   };
-})();
+};

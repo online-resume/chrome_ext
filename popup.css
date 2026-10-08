@@ -80,3 +80,5 @@ button.link { flex: none; padding: 2px 4px; border: 0; background: none; color: 
 details { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
 summary { color: var(--ink-2); cursor: pointer; }
 details label { margin-top: 8px; }
+label.tick { display: flex; align-items: start; gap: 6px; }
+label.tick input { width: auto; margin: 2px 0 0; }

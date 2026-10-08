@@ -1,15 +1,52 @@
 {
   "manifest_version": 3,
   "name": "AI Resume Builder - Page Clipper",
-  "version": "1.6.0",
-  "description": "Reads the job on the page you have open and sends it to your AI Resume Builder as a role.",
-  "icons": { "16": "icons/icon-16.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
+  "version": "1.7.0",
+  "description": "Sends the job you have open to your AI Resume Builder as a role, and offers to on job sites.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
   "action": {
     "default_title": "Send this page to AI Resume Builder",
     "default_popup": "popup.html",
-    "default_icon": { "16": "icons/icon-16.png", "48": "icons/icon-48.png" }
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png"
+    }
   },
-  "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["http://localhost/*", "http://127.0.0.1/*"],
-  "optional_host_permissions": ["http://*/*", "https://*/*"]
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.indeed.com/*",
+        "https://*.linkedin.com/*",
+        "https://*.dice.com/*",
+        "https://*.glassdoor.com/*",
+        "https://*.ziprecruiter.com/*"
+      ],
+      "js": [
+        "extract.js",
+        "sponsorship.js",
+        "watch.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
 }

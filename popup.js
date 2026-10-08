@@ -5,7 +5,7 @@
 // address in chrome.storage and sent as `Authorization: Bearer`. The password is never kept. Each
 // user of the extension so works as their own app user, whoever is logged in to the app's page.
 
-import { sponsorship } from "./sponsorship.js";
+const sponsorship = (text) => globalThis.rbSponsorship(text);   // sponsorship.js, loaded by popup.html
 
 const DEFAULT_BASE = "http://localhost:8000";
 const MIN_TEXT = 200;   // the app refuses less: it cannot be a job description (serve.CLIP_MIN)
@@ -167,7 +167,8 @@ async function readPage() {
     throw new Error("This is not a web page. Open a job posting (or any website) and click the icon again.");
   }
   try {
-    const [injected] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["extract.js"] });
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["extract.js"] });   // defines rbExtract
+    const [injected] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => globalThis.rbExtract() });
     if (!injected?.result) throw new Error("empty");
     return injected.result;
   } catch {
@@ -246,7 +247,9 @@ async function saveBase() {
 }
 
 async function start() {
-  const saved = await chrome.storage.local.get(["base", "token", "user", "sent"]);
+  const saved = await chrome.storage.local.get(["base", "token", "user", "sent", "offer"]);
+  $("offer").checked = saved.offer !== false;   // watch.js: the box on job sites; on unless switched off
+  $("offer").addEventListener("change", () => chrome.storage.local.set({ offer: $("offer").checked }));
   base = saved.base || DEFAULT_BASE;
   token = saved.token || "";
   user = saved.user || "";

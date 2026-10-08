@@ -6,12 +6,16 @@
 // such jobs; prod/tests/test_profile_cards.py runs both on the same postings. A change to one
 // belongs in the other.
 //
-// sponsorship(text) -> {status: "no" | "yes" | "unknown", words}
+// A plain script, not a module: the popup loads it with a script tag and the job sites get it as a
+// content script (which cannot be a module). It defines rbSponsorship.
+//
+// rbSponsorship(text) -> {status: "no" | "yes" | "unknown", words}
 //   no       the posting says none is offered, rules out sponsored visas, or takes citizens /
 //            green card holders only; `words` are the posting's own
 //   yes      it says sponsorship is offered (or that visa holders are welcome)
 //   unknown  it does not mention it
 
+(() => {
 const VISA = "(?:h-?1-?b|h1|opt|cpt|stem[- ]opt|tn|e-?3|visa)";
 const CITIZEN = "(?:u\\.?s\\.?a?\\.?|united states|american)\\s+citizens?(?:hip)?";
 const RULES = [
@@ -37,7 +41,7 @@ const WELCOMES = new RegExp(`\\b${VISA}s?\\s+(?:holders?\\s+|candidates?\\s+|tra
 const DENIES = /\bno\b|\bnot\b|n't|\bunable\b/i;
 const words = (found) => found[0].split(/\s+/).filter(Boolean).join(" ").slice(0, 80);
 
-export function sponsorship(text) {
+globalThis.rbSponsorship = (text) => {
   // sentences: a line break, or a full stop after a word of three letters or more ("U.S. citizen" stays whole)
   const sentences = String(text ?? "").split(/(?<=[A-Za-z0-9)]{3}[.!?])\s+|[\r\n]+/).filter((s) => s && s.trim());
   let offered = null;
@@ -53,4 +57,5 @@ export function sponsorship(text) {
     if (!DENIES.test(sentence)) offered ??= WELCOMES.test(sentence) ? words(WELCOMES.exec(sentence)) : null;
   }
   return offered ? { status: "yes", words: offered } : { status: "unknown", words: "" };
-}
+};
+})();

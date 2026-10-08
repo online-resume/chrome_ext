@@ -53,6 +53,21 @@ location (correct them if needed) and the text that will be sent, which you can 
   again** is there if you need it (for example for a newer apply link).
 - **Copy text:** the text box, to the clipboard.
 
+## It asks by itself on job sites
+
+On **Indeed, LinkedIn, Dice, Glassdoor and ZipRecruiter** you do not need to click the icon.
+When you open a job, a small box appears in the bottom right corner of the page:
+
+> **Send this job to AI Resume Builder?** - the job's title, company and location, and whether it
+> offers visa sponsorship - **Send** / **Not now**
+
+- Nothing is sent until you press **Send**. The box then tells you which profile it was saved for.
+- **Not now** (or the x) hides the box for that job until you load the page again.
+- No box for a job you already sent, or when you are not signed in to the extension.
+- To switch this off, untick the box under **Settings** in the popup. The icon keeps working.
+
+On every other website the extension still reads a page only when you click its icon.
+
 ## Job boards with a list beside the job
 
 On Indeed, LinkedIn, Dice, Glassdoor and ZipRecruiter a page shows a list of postings on one
@@ -98,14 +113,17 @@ with the current one.
 
 ## What it may do
 
-It reads a page only when you click the icon on it, and calls only the app's address. Chrome's
-own pages, the Web Store and PDF files cannot be read.
+- On the five job sites above it looks at the page by itself, to notice when a job is open. It
+  sends nothing unless you press Send.
+- On every other site it reads a page only when you click the icon on it.
+- It calls only the app's address. Chrome's own pages, the Web Store and PDF files cannot be read.
 
 ## Files
 
 - `manifest.json` - Manifest V3.
 - `extract.js` - runs in the page and returns its data.
 - `sponsorship.js` - the rules that read whether visa sponsorship is offered.
+- `watch.js` - the box that asks on job sites; `background.js` - sends the job for it.
 - `popup.html`, `popup.css`, `popup.js` - the popup.
 
 No build step. After changing a file, press the reload arrow on the extension's card in
