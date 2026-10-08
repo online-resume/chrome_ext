@@ -27,6 +27,8 @@ body {
 
 header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 h1 { flex: 1; margin: 0; font-size: 15px; }
+header .muted { margin: 0; }
+form { margin: 0; }
 
 .page-title { margin: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .muted { margin: 2px 0 8px; color: var(--ink-2); font-size: 12px; }

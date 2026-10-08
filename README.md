@@ -24,16 +24,20 @@ your AI Resume Builder as a role.
    that has `manifest.json` directly inside it.
 4. Click the puzzle-piece icon in Chrome's toolbar and pin **AI Resume Builder - Page Clipper**.
 
-**3. Connect it to the app**
+**3. Connect it to the app and sign in**
 
-1. In the same Chrome, open AI Resume Builder and log in. The extension uses that login and
-   never sees your password.
-2. Click the extension's icon, open **Settings** at the bottom, and enter where the app runs:
+1. Click the extension's icon and open **Settings** at the bottom. Enter where the app runs:
    - on the computer that runs the app: `http://localhost:8000` (already filled in);
    - on another computer: the app's Tailscale link, the `https://....ts.net` address shown when
      the app starts.
-3. Press **Save**. For an address that is not this computer, Chrome asks once for permission to
+2. Press **Save**. For an address that is not this computer, Chrome asks once for permission to
    reach it: allow it.
+3. Enter your AI Resume Builder **username and password** and press **Sign in**.
+
+Everything you send is saved under your own account, and only you see it in the app. Each person
+signs in with their own username, on their own Chrome. Your name is shown at the top of the
+popup, with **Sign out** next to it. The password is used once to sign in and is not kept; you
+stay signed in for 7 days, or until your password changes.
 
 **Updating later:** download the ZIP again, replace the files in the folder, then press the
 reload arrow on the extension's card in `chrome://extensions`.

@@ -9,8 +9,18 @@
   <header>
     <img src="icons/icon-48.png" alt="" width="24" height="24">
     <h1>AI Resume Builder</h1>
+    <span id="who" class="muted" hidden></span>
+    <button id="sign-out" class="link" type="button" title="Sign out of the extension" hidden>Sign out</button>
     <button id="open-app" class="link" type="button" title="Open AI Resume Builder in a new tab">Open app</button>
   </header>
+
+  <form id="sign-in" hidden>
+    <p class="muted">Sign in with your AI Resume Builder username and password. What you send is saved under your own account.</p>
+    <label>Username <input id="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+    <label>Password <input id="password" type="password" autocomplete="current-password" required></label>
+    <button class="primary" type="submit">Sign in</button>
+    <p id="sign-in-status" class="note bad" role="status" hidden></p>
+  </form>
 
   <p id="problem" class="note bad" hidden></p>
 
@@ -44,7 +54,7 @@
       <input id="base" type="url" placeholder="http://localhost:8000">
     </label>
     <button id="save-base" type="button">Save</button>
-    <p class="muted">Log in to the app in this browser once; the extension uses that login and never sees your password.</p>
+    <p class="muted">Your password is sent to this address once, to sign in, and is not kept. You stay signed in for 7 days.</p>
   </details>
 
   <script src="popup.js" type="module"></script>

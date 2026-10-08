@@ -1,7 +1,9 @@
 // The popup: reads the open page (extract.js, injected on this click only), shows what it found and
 // lets the user send it to AI Resume Builder as a role (POST /api/roles/clip), download everything
-// as JSON, or copy the text. The app is called with the browser's own login cookie: the extension
-// stores no password, only the app's address (chrome.storage).
+// as JSON, or copy the text. The user signs in here with their app username and password
+// (POST /api/extension/login); the app answers with a session token, which is kept with the app's
+// address in chrome.storage and sent as `Authorization: Bearer`. The password is never kept. Each
+// user of the extension so works as their own app user, whoever is logged in to the app's page.
 
 const DEFAULT_BASE = "http://localhost:8000";
 const MIN_TEXT = 200;   // the app refuses less: it cannot be a job description (serve.CLIP_MIN)
@@ -9,6 +11,59 @@ const $ = (id) => document.getElementById(id);
 
 let page = null;   // what extract.js returned for the open tab
 let base = DEFAULT_BASE;
+let token = "";    // the signed-in user's session token ("" = signed out)
+
+// A call to the app as the signed-in user. The browser's own cookies are left out, so the app
+// sees only the extension's user.
+const call = (path, body) => fetch(`${base}${path}`, {
+  method: "POST",
+  credentials: "omit",
+  headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  body: JSON.stringify(body),
+});
+
+// Signed in: the page's data and the buttons. Signed out: the sign-in form (with `why` above it).
+function showUser(user, why = "") {
+  $("who").textContent = user || "";
+  $("who").hidden = $("sign-out").hidden = !user;
+  $("sign-in").hidden = Boolean(user);
+  $("page").hidden = !user || !page;
+  $("problem").hidden = !user || Boolean(page) || !$("problem").textContent;
+  $("sign-in-status").textContent = why;
+  $("sign-in-status").hidden = !why;
+  if (!user) $("username").focus();
+}
+
+async function signOut(why = "") {
+  token = "";
+  await chrome.storage.local.remove(["token", "user"]);
+  showUser("", typeof why === "string" ? why : "");
+}
+
+async function signIn(event) {
+  event.preventDefault();
+  const button = $("sign-in").querySelector("button");
+  button.disabled = true;
+  let response;
+  try {
+    response = await call("/api/extension/login", { username: $("username").value.trim(), password: $("password").value });
+  } catch {
+    $("settings").open = true;
+    return showUser("", `AI Resume Builder did not answer at ${base}. Start it, or change its address in Settings below.`);
+  } finally {
+    button.disabled = false;
+  }
+  const answer = await response.json().catch(() => ({}));
+  if (!response.ok || !answer.token) {
+    return showUser("", answer.error || (response.status === 404
+      ? "This AI Resume Builder is older than the extension. Restart the app, then sign in again."
+      : `Sign-in failed (error ${response.status}).`));
+  }
+  token = answer.token;
+  $("password").value = "";
+  await chrome.storage.local.set({ token, user: answer.username });
+  showUser(answer.username);
+}
 
 function say(text, kind = "", action = null) {
   const box = $("status");
@@ -68,7 +123,6 @@ function showPage() {
   };
   select.addEventListener("change", use);
   use();
-  $("page").hidden = false;
 }
 
 async function readPage() {
@@ -91,15 +145,10 @@ async function send() {
   say("Sending, and finding the profile that fits best. This takes a few seconds…");
   let response;
   try {
-    response = await fetch(`${base}/api/roles/clip`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url: page.url, title: roleName() || page.title, text: $("text").value.trim(),
-        job_title: $("job-title").value.trim(), company_name: $("company").value.trim(), location: $("location").value.trim(),
-        apply_url: page.apply?.url || "",
-      }),
+    response = await call("/api/roles/clip", {
+      url: page.url, title: roleName() || page.title, text: $("text").value.trim(),
+      job_title: $("job-title").value.trim(), company_name: $("company").value.trim(), location: $("location").value.trim(),
+      apply_url: page.apply?.url || "",
     });
   } catch {
     button.disabled = false;
@@ -108,8 +157,9 @@ async function send() {
   }
   button.disabled = false;
   const answer = await response.json().catch(() => ({}));
-  if (response.status === 401) {
-    return say("Log in to AI Resume Builder in this browser, then send again.", "bad", { label: "Open the login page", run: openApp });
+  if (response.status === 401) {   // 7 days passed, or the password or the account changed
+    say("");
+    return signOut("Your sign-in has ended. Sign in again, then send.");
   }
   if (!response.ok) return say(answer.error || `The app refused the page (error ${response.status}).`, "bad");
   const open = { label: "Open AI Resume Builder", run: openApp };
@@ -147,15 +197,21 @@ async function saveBase() {
   if (!["localhost", "127.0.0.1"].includes(url.hostname) && !await chrome.permissions.request({ origins: [`${url.origin}/*`] })) {
     return say("Without that permission the extension cannot reach this address.", "bad");
   }
+  const moved = url.origin !== base;
   base = url.origin;
   $("base").value = base;
   await chrome.storage.local.set({ base });
-  say("Address saved.", "good");
+  if (moved) return signOut("Address saved. Sign in to the app at this address.");   // a sign-in belongs to one app
+  if (token) say("Address saved.", "good");
 }
 
 async function start() {
-  base = (await chrome.storage.local.get("base")).base || DEFAULT_BASE;
+  const saved = await chrome.storage.local.get(["base", "token", "user"]);
+  base = saved.base || DEFAULT_BASE;
+  token = saved.token || "";
   $("base").value = base;
+  $("sign-in").addEventListener("submit", signIn);
+  $("sign-out").addEventListener("click", signOut);
   $("open-app").addEventListener("click", openApp);
   $("save-base").addEventListener("click", saveBase);
   $("text").addEventListener("input", showSize);
@@ -167,8 +223,8 @@ async function start() {
     showPage();
   } catch (err) {
     $("problem").textContent = err.message;
-    $("problem").hidden = false;
   }
+  showUser(token ? saved.user || "Signed in" : "");
 }
 
 start();
