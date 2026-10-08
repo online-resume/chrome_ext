@@ -64,6 +64,14 @@ that is open on this page**; the other choices (main part, whole page) are still
 Indeed has been checked on its live page. If one of the other sites still sends too much,
 select the job's text with the mouse before clicking the icon and choose **The text I selected**.
 
+## Jobs without visa sponsorship
+
+If your profiles are set to skip jobs that offer no visa sponsorship (in the app: a profile's
+Sources, *Skips no-sponsorship jobs*), the extension follows that. When you press Send on such a
+job, nothing is saved; the button reads **Skipped - no sponsorship** and the popup shows the
+words in the posting that say so. If only some of your profiles skip them, the job is matched
+among the others.
+
 ## The apply link
 
 The address behind the page's **Apply** button is sent with the job, and the app shows it on the

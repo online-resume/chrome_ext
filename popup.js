@@ -180,14 +180,19 @@ async function send() {
     $("settings").open = true;
     return say(`AI Resume Builder did not answer at ${base}. Start it, or change its address in Settings below.`, "bad");
   }
-  if (response.ok) await remember();
-  showSend();
   const answer = await response.json().catch(() => ({}));
+  if (response.ok && !answer.skipped) await remember();
+  showSend();
   if (response.status === 401) {   // 7 days passed, or the password or the account changed
     say("");
     return signOut("Your sign-in has ended. Sign in again, then send.");
   }
   if (!response.ok) return say(answer.error || `The app refused the page (error ${response.status}).`, "bad");
+  if (answer.skipped) {   // every profile skips jobs without visa sponsorship: nothing was saved
+    $("send").textContent = "Skipped - no sponsorship";
+    return say(`Not sent. This job offers no visa sponsorship (it says “${answer.reason}”), and your profiles skip such jobs. `
+      + "To take them, open a profile's Sources in the app and switch that off.", "bad");
+  }
   const open = { label: "Open AI Resume Builder", run: openApp };
   if (answer.already) return say("You already sent this job. It is in Email JDs.", "good", open);
   if (!answer.profile) {
