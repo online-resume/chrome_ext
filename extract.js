@@ -2,10 +2,14 @@
 // page only when asked). Its last expression is what popup.js receives: everything on the page as
 // plain data. Nothing here changes the page or calls a server.
 //
-// Result: {url, title, language, captured_at, selection, job, meta, structured_data, headings,
-//          text: {job, main, full}, links, images, tables, counts}
-//   job   what the page's own job data (schema.org JobPosting) says: title, company, location, ...
-//   text  job = that posting's description, main = the page's main part, full = the whole page
+// Result: {url, page_url, title, language, captured_at, selection, job, meta, structured_data,
+//          headings, text: {panel, job, main, full}, links, images, tables, counts}
+//   job   the job's title, company, location, ...: from the job panel on the page (SITES) and the
+//         page's own job data (schema.org JobPosting)
+//   text  panel = the one job that is open on the page (job boards show a list of postings next
+//         to it; the list is left out), job = the description in the page's job data,
+//         main = the page's main part, full = the whole page
+//   url   the address of that one job when the site has one (SITES), else the page's address
 (() => {
   const LIMITS = { links: 2000, images: 1000, tables: 100, rows: 500, text: 400000 };
   const tidy = (value) => String(value ?? "").replace(/ /g, " ").replace(/[ \t]+/g, " ")
@@ -24,6 +28,79 @@
     } catch {
       return tidy(broken.replace(/<[^>]+>/g, " "));
     }
+  }
+
+  // The text a person sees in an element. A part that is not drawn (a panel folded away in a
+  // narrow window) has no innerText of its own kind: its styles and scripts are taken out instead.
+  function shown(node) {
+    if (!node) return "";
+    if (node.getClientRects().length) return tidy(node.innerText);
+    const copy = node.cloneNode(true);
+    copy.querySelectorAll("style, script, noscript, template").forEach((n) => n.remove());
+    return tidy(copy.textContent);
+  }
+  const first = (selectors) => {
+    for (const selector of selectors || []) {
+      const node = document.querySelector(selector);
+      if (node && shown(node)) return node;
+    }
+    return null;
+  };
+  const param = (...names) => names.map((n) => new URLSearchParams(location.search).get(n)).find(Boolean);
+
+  // ---- job boards that show a list of postings beside the one that is open: where that one
+  // job's text, title, company and location are, and its own address. Each list is tried in
+  // order (a site's newer page first). A site that is not here is read by GENERIC below.
+  const SITES = [
+    { host: /(^|\.)indeed\.[a-z.]+$/,
+      panel: ['[data-testid="viewjob-job-content"]', "#jobDescriptionText"],
+      title: ['[data-testid="vj-job-title"]', '[data-testid="jobsearch-JobInfoHeader-title"]', ".jobsearch-JobInfoHeader-title"],
+      company: ['[data-testid="vj-company-name"]', '[data-testid="inlineHeader-companyName"]'],
+      location: ['[data-testid="inlineHeader-companyLocation"]', '[data-testid="job-location"]'],
+      around: ['[data-testid="company-info-metadata"]'],
+      leave: '[data-testid^="job-card-"]',
+      url: () => { const id = param("vjk", "jk"); return id && `${location.origin}/viewjob?jk=${encodeURIComponent(id)}`; } },
+    { host: /(^|\.)linkedin\.com$/,
+      panel: ["#job-details", ".jobs-description__content", ".jobs-description-content__text", ".show-more-less-html__markup"],
+      title: [".job-details-jobs-unified-top-card__job-title", ".jobs-unified-top-card__job-title", ".top-card-layout__title"],
+      company: [".job-details-jobs-unified-top-card__company-name", ".jobs-unified-top-card__company-name", ".topcard__org-name-link"],
+      location: [".topcard__flavor--bullet"],
+      url: () => { const id = param("currentJobId"); return id && `${location.origin}/jobs/view/${encodeURIComponent(id)}/`; } },
+    { host: /(^|\.)dice\.com$/,
+      panel: ['[data-testid="jobDescriptionHtml"]', "#jobDescription"],
+      title: ['[data-cy="jobTitle"]'], company: ['[data-cy="companyNameLink"]'], location: ['[data-cy="location"]'] },
+    { host: /(^|\.)glassdoor\.[a-z.]+$/,
+      panel: ['[class*="JobDetails_jobDescription"]', '[data-test="jobDescriptionContent"]'],
+      title: ['[data-test="job-title"]'], company: ['[data-test="employer-name"]'], location: ['[data-test="location"]'] },
+    { host: /(^|\.)ziprecruiter\.com$/,
+      panel: ['[data-testid="job-details-scroll-container"]', ".job_description"] },
+  ];
+  // any other site: an element named after a job description, the one with the most text
+  const GENERIC = ["jobdescription", "job-description", "job_description", "jobs-description", "job-details", "jobdetails"]
+    .flatMap((word) => [`[id*="${word}" i]`, `[class*="${word}" i]`, `[data-testid*="${word}" i]`]).join(", ");
+
+  const site = SITES.find((entry) => entry.host.test(location.hostname));
+  let panel = first(site?.panel);
+  const known = Boolean(panel);
+  if (!panel) {
+    for (const node of document.querySelectorAll(GENERIC)) {
+      if (node.getClientRects().length && shown(node).length > Math.max(199, shown(panel).length)) panel = node;
+    }
+  }
+  const onPage = { title: shown(first(site?.title)), company: shown(first(site?.company)), location: shown(first(site?.location)) };
+  if (known && site.around && !(onPage.company && onPage.location)) {
+    // company and location are lines of one block, with a rating between them on some postings:
+    // of the lines that are words, the first is the company and the next one the location
+    const lines = shown(first(site.around)).split("\n").map((line) => line.trim()).filter((line) => /[A-Za-z]{2}/.test(line));
+    onPage.company ||= lines[0] || "";
+    onPage.location ||= lines.find((line) => line !== onPage.company) || "";
+  }
+  // The open job's text. A site may put other postings inside the same panel ("more jobs like
+  // this"): the parts of the panel that hold what `leave` names are left out.
+  function panelText() {
+    if (!known || !site.leave || !panel.querySelector(site.leave)) return shown(panel);
+    return tidy([...panel.children].filter((part) => !part.matches(site.leave) && !part.querySelector(site.leave))
+      .map(shown).filter(Boolean).join("\n\n"));
   }
 
   // ---- the page's structured data (JSON-LD): job sites publish the posting there for search engines
@@ -56,7 +133,7 @@
       .filter(Boolean).join(" ");
   }
 
-  const job = posting ? {
+  const listed = posting ? {
     title: tidy(posting.title || posting.name),
     company: tidy(one(posting.hiringOrganization)?.name ?? (typeof posting.hiringOrganization === "string" ? posting.hiringOrganization : "")),
     location: place(posting.jobLocation) || (posting.jobLocationType === "TELECOMMUTE" ? "Remote" : ""),
@@ -65,6 +142,9 @@
     valid_through: tidy(posting.validThrough),
     salary: pay(posting.baseSalary),
   } : null;
+  // the open panel is the job the user is looking at: what it says wins over the page's data
+  const found = Object.fromEntries(Object.entries(onPage).filter(([, value]) => value));
+  const job = listed || Object.keys(found).length ? { ...listed, ...found } : null;
 
   // ---- meta tags (description, Open Graph, Twitter cards)
   const meta = {};
@@ -78,9 +158,12 @@
 
   // ---- text: the main part is the largest of the elements a page marks as its content
   const full = tidy(document.body?.innerText).slice(0, LIMITS.text);
+  const described = posting ? htmlToText(posting.description) : "";
+  // a panel found only by its name is a guess: the page's own job data, when it has it, is surer
+  const open = known || described.length < 200 ? panelText().slice(0, LIMITS.text) : "";
   let main = "";
   for (const node of document.querySelectorAll('main, article, [role="main"]')) {
-    const text = tidy(node.innerText);
+    const text = shown(node);
     if (text.length > main.length) main = text;
   }
   main = (main.length >= 200 ? main : full).slice(0, LIMITS.text);
@@ -113,7 +196,8 @@
   })).filter((table) => table.rows.length);
 
   return {
-    url: location.href,
+    url: (open && site?.url?.()) || location.href,
+    page_url: location.href,
     title: tidy(document.title),
     language: document.documentElement.lang || "",
     captured_at: new Date().toISOString(),
@@ -122,7 +206,7 @@
     meta,
     structured_data: structured,
     headings,
-    text: { job: posting ? htmlToText(posting.description) : "", main, full },
+    text: { panel: open, job: described, main, full },
     links,
     images,
     tables,

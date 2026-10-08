@@ -29,6 +29,7 @@ const openApp = () => chrome.tabs.create({ url: base });
 function parts() {
   const options = [
     ["selection", "The text I selected", page.selection],
+    ["panel", "Only the job that is open on this page", page.text.panel],
     ["job", "The job description found in the page's data", page.text.job],
     ["main", "The main part of the page", page.text.main],
     ["full", "The whole page", page.text.full],
@@ -36,6 +37,9 @@ function parts() {
   // a part the page does not have, or one that repeats the one before it, is not offered
   return options.filter(([, , text], i) => text && text.length >= MIN_TEXT && !options.slice(0, i).some(([, , t]) => t === text));
 }
+
+// On a page that lists many postings the page's own title names the search, not the job.
+const roleName = () => [$("job-title").value.trim(), $("company").value.trim()].filter(Boolean).join(" - ");
 
 function showSize() {
   const length = $("text").value.trim().length;
@@ -49,7 +53,7 @@ function showPage() {
   $("page-title").title = page.url;
   const c = page.counts;
   $("found").textContent = `Found: ${c.words.toLocaleString()} words, ${c.links} links, ${c.images} images, ${c.tables} tables`
-    + (page.job ? ", job details" : "");
+    + (page.text.panel ? ". Only the open job will be sent, not the list beside it." : page.job ? ", job details" : "");
   $("job-title").value = page.job?.title || "";
   $("company").value = page.job?.company || "";
   $("location").value = page.job?.location || "";
@@ -91,7 +95,7 @@ async function send() {
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        url: page.url, title: page.title, text: $("text").value.trim(),
+        url: page.url, title: roleName() || page.title, text: $("text").value.trim(),
         job_title: $("job-title").value.trim(), company_name: $("company").value.trim(), location: $("location").value.trim(),
       }),
     });

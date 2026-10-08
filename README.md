@@ -49,6 +49,17 @@ location (correct them if needed) and the text that will be sent, which you can 
   structured data, as one JSON file. Nothing is sent anywhere.
 - **Copy text:** the text box, to the clipboard.
 
+## Job boards with a list beside the job
+
+On Indeed, LinkedIn, Dice, Glassdoor and ZipRecruiter a page shows a list of postings on one
+side and the job you clicked on the other. Click the job you want first, then the extension's
+icon: only that job is read and sent, not the list or the "other jobs" suggestions, and its
+title, company and location are filled in for you. "Text to send" then reads **Only the job
+that is open on this page**; the other choices (main part, whole page) are still there.
+
+Indeed has been checked on its live page. If one of the other sites still sends too much,
+select the job's text with the mouse before clicking the icon and choose **The text I selected**.
+
 ## What it may do
 
 It reads a page only when you click the icon on it, and calls only the app's address. Chrome's
