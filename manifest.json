@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "AI Resume Builder - Page Clipper",
-  "version": "1.3.0",
-  "description": "Reads everything on the page you have open and sends a job posting to your AI Resume Builder as a role.",
+  "version": "1.4.0",
+  "description": "Reads the job on the page you have open and sends it to your AI Resume Builder as a role.",
   "icons": { "16": "icons/icon-16.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
   "action": {
     "default_title": "Send this page to AI Resume Builder",

@@ -1,7 +1,7 @@
 # AI Resume Builder - Page Clipper
 
-A Chrome extension that reads everything on the page you have open and sends a job posting to
-your AI Resume Builder as a role.
+A Chrome extension that reads the job on the page you have open and sends it to your AI Resume
+Builder as a role.
 
 ## Install
 
@@ -48,9 +48,9 @@ Open a job page and click the icon. The popup shows what it read, the job title,
 location (correct them if needed) and the text that will be sent, which you can choose and edit.
 
 - **Send to Resume Builder as a role:** the app matches the text to your best-fitting profile
-  and lists it under Email JDs, ready to optimize.
-- **Download all page data:** text, headings, links, images, tables, meta tags and the page's
-  structured data, as one JSON file. Nothing is sent anywhere.
+  and lists it under Email JDs, ready to optimize. The button then reads **Sent ✓**, and it still
+  does when you open the popup on that job again, so you can see what you already sent. **Send it
+  again** is there if you need it (for example for a newer apply link).
 - **Copy text:** the text box, to the clipboard.
 
 ## Job boards with a list beside the job

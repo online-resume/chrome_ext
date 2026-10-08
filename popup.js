@@ -1,6 +1,6 @@
 // The popup: reads the open page (extract.js, injected on this click only), shows what it found and
-// lets the user send it to AI Resume Builder as a role (POST /api/roles/clip), download everything
-// as JSON, or copy the text. The user signs in here with their app username and password
+// lets the user send it to AI Resume Builder as a role (POST /api/roles/clip) or copy the text.
+// A job that was sent is remembered (chrome.storage, per user): its button then reads "Sent". The user signs in here with their app username and password
 // (POST /api/extension/login); the app answers with a session token, which is kept with the app's
 // address in chrome.storage and sent as `Authorization: Bearer`. The password is never kept. Each
 // user of the extension so works as their own app user, whoever is logged in to the app's page.
@@ -60,9 +60,11 @@ async function signIn(event) {
       : `Sign-in failed (error ${response.status}).`));
   }
   token = answer.token;
+  user = answer.username;
   $("password").value = "";
-  await chrome.storage.local.set({ token, user: answer.username });
-  showUser(answer.username);
+  await chrome.storage.local.set({ token, user });
+  showUser(user);
+  if (page) showSent();
 }
 
 function say(text, kind = "", action = null) {
@@ -96,11 +98,33 @@ function parts() {
 // On a page that lists many postings the page's own title names the search, not the job.
 const roleName = () => [$("job-title").value.trim(), $("company").value.trim()].filter(Boolean).join(" - ");
 
+// ---- the jobs this user already sent, so the button can say so when the popup is opened again.
+// A job is its address with its title and company (a job board shows many jobs at one address).
+const SENT_KEPT = 500;
+let sent = [];   // newest last
+let user = "";
+const jobKey = () => [user, page.url, $("job-title").value.trim().toLowerCase(), $("company").value.trim().toLowerCase()].join("|");
+
+async function remember() {
+  sent = [...sent.filter((key) => key !== jobKey()), jobKey()].slice(-SENT_KEPT);
+  await chrome.storage.local.set({ sent });
+}
+
+// The Send button: "Sent" (and off) for a job that was sent, else ready when there is enough text.
+function showSend() {
+  const done = Boolean(page) && sent.includes(jobKey());
+  const length = $("text").value.trim().length;
+  $("send").textContent = done ? "Sent \u2713" : "Send to Resume Builder as a role";
+  $("send").classList.toggle("done", done);
+  $("send").disabled = done || length < MIN_TEXT;
+  return done;
+}
+
 function showSize() {
   const length = $("text").value.trim().length;
   $("size").textContent = `${length.toLocaleString()} characters`
     + (length < MIN_TEXT ? " - too short to be a job description" : "");
-  $("send").disabled = length < MIN_TEXT;
+  showSend();
 }
 
 function showPage() {
@@ -142,6 +166,7 @@ async function readPage() {
 async function send() {
   const button = $("send");
   button.disabled = true;
+  button.textContent = "Sending\u2026";
   say("Sending, and finding the profile that fits best. This takes a few seconds…");
   let response;
   try {
@@ -151,11 +176,12 @@ async function send() {
       apply_url: page.apply?.url || "",
     });
   } catch {
-    button.disabled = false;
+    showSend();
     $("settings").open = true;
     return say(`AI Resume Builder did not answer at ${base}. Start it, or change its address in Settings below.`, "bad");
   }
-  button.disabled = false;
+  if (response.ok) await remember();
+  showSend();
   const answer = await response.json().catch(() => ({}));
   if (response.status === 401) {   // 7 days passed, or the password or the account changed
     say("");
@@ -163,21 +189,18 @@ async function send() {
   }
   if (!response.ok) return say(answer.error || `The app refused the page (error ${response.status}).`, "bad");
   const open = { label: "Open AI Resume Builder", run: openApp };
-  if (answer.already) return say("You already sent this page. It is in Email JDs.", "good", open);
+  if (answer.already) return say("You already sent this job. It is in Email JDs.", "good", open);
   if (!answer.profile) {
     return say("Saved, but none of your profiles fits it. In Email JDs you can give it to a profile yourself.", "", open);
   }
   say(`Saved for your profile “${answer.profile_name || answer.profile}” (fit ${Math.round((answer.fit || 0) * 100)}%). It is in Email JDs, ready to optimize.`, "good", open);
 }
 
-function download() {
-  const name = (page.title || "page").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 60) || "page";
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(new Blob([JSON.stringify(page, null, 2)], { type: "application/json" }));
-  link.download = `${name}.json`;
-  link.click();
-  URL.revokeObjectURL(link.href);
-  say("Saved to your Downloads folder.", "good");
+// Opened on a job that was already sent: say so, with a way to send it once more (a newer apply
+// link, or a role that was removed in the app since).
+function showSent() {
+  if (!showSend()) return;
+  say("You already sent this job.", "good", { label: "Send it again", run: () => { sent = sent.filter((key) => key !== jobKey()); send(); } });
 }
 
 async function copy() {
@@ -206,9 +229,12 @@ async function saveBase() {
 }
 
 async function start() {
-  const saved = await chrome.storage.local.get(["base", "token", "user"]);
+  const saved = await chrome.storage.local.get(["base", "token", "user", "sent"]);
   base = saved.base || DEFAULT_BASE;
   token = saved.token || "";
+  user = saved.user || "";
+  sent = Array.isArray(saved.sent) ? saved.sent : [];
+  for (const id of ["job-title", "company"]) $(id).addEventListener("input", showSend);
   $("base").value = base;
   $("sign-in").addEventListener("submit", signIn);
   $("sign-out").addEventListener("click", signOut);
@@ -216,7 +242,6 @@ async function start() {
   $("save-base").addEventListener("click", saveBase);
   $("text").addEventListener("input", showSize);
   $("send").addEventListener("click", send);
-  $("download").addEventListener("click", download);
   $("copy").addEventListener("click", copy);
   try {
     page = await readPage();
@@ -224,7 +249,8 @@ async function start() {
   } catch (err) {
     $("problem").textContent = err.message;
   }
-  showUser(token ? saved.user || "Signed in" : "");
+  showUser(token ? user || "Signed in" : "");
+  if (token && page) showSent();
 }
 
 start();
