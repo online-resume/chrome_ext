@@ -1,6 +1,8 @@
 // The popup: reads the open page (extract.js, injected on this click only), shows what it found and
 // lets the user send it to AI Resume Builder as a role (POST /api/roles/clip) or copy the text.
-// A job that was sent is remembered (chrome.storage, per user): its button then reads "Sent". The user signs in here with their app username and password
+// A job that was sent is remembered (chrome.storage, per user): its button then reads "Sent".
+// "Send and optimize" also queues the role in the app's Applications ({optimize: true}): a resume is
+// made for it in the background, and it waits there with the apply link. The user signs in here with their app username and password
 // (POST /api/extension/login); the app answers with a session token, which is kept with the app's
 // address in chrome.storage and sent as `Authorization: Bearer`. The password is never kept. Each
 // user of the extension so works as their own app user, whoever is logged in to the app's page.
@@ -103,13 +105,16 @@ const roleName = () => [$("job-title").value.trim(), $("company").value.trim()].
 // ---- the jobs this user already sent, so the button can say so when the popup is opened again.
 // A job is its address with its title and company (a job board shows many jobs at one address).
 const SENT_KEPT = 500;
-let sent = [];   // newest last
+let sent = [];        // newest last
+let optimized = [];   // of those, the ones also queued to be optimized
 let user = "";
 const jobKey = () => [user, page.url, $("job-title").value.trim().toLowerCase(), $("company").value.trim().toLowerCase()].join("|");
 
-async function remember() {
-  sent = [...sent.filter((key) => key !== jobKey()), jobKey()].slice(-SENT_KEPT);
-  await chrome.storage.local.set({ sent });
+async function remember(alsoOptimized) {
+  const add = (list) => [...list.filter((key) => key !== jobKey()), jobKey()].slice(-SENT_KEPT);
+  sent = add(sent);
+  if (alsoOptimized) optimized = add(optimized);
+  await chrome.storage.local.set({ sent, optimized });
 }
 
 // The Send button: "Sent" (and off) for a job that was sent, else ready when there is enough text.
@@ -119,6 +124,11 @@ function showSend() {
   $("send").textContent = done ? "Sent \u2713" : "Send to Resume Builder as a role";
   $("send").classList.toggle("done", done);
   $("send").disabled = done || length < MIN_TEXT;
+  const queued = Boolean(page) && optimized.includes(jobKey());
+  $("send-optimize").textContent = queued ? "Resume is being made in the app \u2713"
+    : done ? "Optimize the resume for it too" : "Send and optimize the resume";
+  $("send-optimize").classList.toggle("done", queued);
+  $("send-optimize").disabled = queued || length < MIN_TEXT;
   return done;
 }
 
@@ -176,9 +186,9 @@ async function readPage() {
   }
 }
 
-async function send() {
-  const button = $("send");
-  button.disabled = true;
+async function send(optimize = false) {
+  const button = $(optimize ? "send-optimize" : "send");
+  $("send").disabled = $("send-optimize").disabled = true;
   button.textContent = "Sending\u2026";
   say("Sending, and finding the profile that fits best. This takes a few seconds…");
   let response;
@@ -186,7 +196,7 @@ async function send() {
     response = await call("/api/roles/clip", {
       url: page.url, title: roleName() || page.title, text: $("text").value.trim(),
       job_title: $("job-title").value.trim(), company_name: $("company").value.trim(), location: $("location").value.trim(),
-      apply_url: page.apply?.url || "",
+      apply_url: page.apply?.url || "", optimize,
     });
   } catch {
     showSend();
@@ -194,7 +204,8 @@ async function send() {
     return say(`AI Resume Builder did not answer at ${base}. Start it, or change its address in Settings below.`, "bad");
   }
   const answer = await response.json().catch(() => ({}));
-  if (response.ok && !answer.skipped) await remember();
+  // queued: true, or "active" / "applied" when the app already has it - either way there is nothing more to queue
+  if (response.ok && !answer.skipped) await remember(Boolean(answer.queued));
   showSend();
   if (response.status === 401) {   // 7 days passed, or the password or the account changed
     say("");
@@ -207,6 +218,16 @@ async function send() {
       + "To take them, open a profile's Sources in the app and switch that off.", "bad");
   }
   const open = { label: "Open AI Resume Builder", run: openApp };
+  if (optimize) {
+    const profile = `\u201c${answer.profile_name || answer.profile}\u201d`;
+    if (answer.queued === true) {
+      return say(`Saved for your profile ${profile} (fit ${Math.round((answer.fit || 0) * 100)}%). A resume is now being made for it. `
+        + "When it is ready it is in the app under Applications, with the apply link.", "good", open);
+    }
+    if (answer.queued === "active") return say("This job is already in Applications in the app, being optimized or ready to apply.", "good", open);
+    if (answer.queued === "applied") return say("You already applied to this job. It is in Applications, under History.", "good", open);
+    return say("Saved, but none of your profiles fits it, so no resume was made. In Email JDs you can give it to a profile yourself.", "", open);
+  }
   if (answer.already) return say("You already sent this job. It is in Email JDs.", "good", open);
   if (!answer.profile) {
     return say("Saved, but none of your profiles fits it. In Email JDs you can give it to a profile yourself.", "", open);
@@ -218,7 +239,7 @@ async function send() {
 // link, or a role that was removed in the app since).
 function showSent() {
   if (!showSend()) return;
-  say("You already sent this job.", "good", { label: "Send it again", run: () => { sent = sent.filter((key) => key !== jobKey()); send(); } });
+  say("You already sent this job.", "good", { label: "Send it again", run: () => { sent = sent.filter((key) => key !== jobKey()); send(false); } });
 }
 
 async function copy() {
@@ -247,7 +268,8 @@ async function saveBase() {
 }
 
 async function start() {
-  const saved = await chrome.storage.local.get(["base", "token", "user", "sent", "offer"]);
+  const saved = await chrome.storage.local.get(["base", "token", "user", "sent", "optimized", "offer"]);
+  optimized = Array.isArray(saved.optimized) ? saved.optimized : [];
   $("offer").checked = saved.offer !== false;   // watch.js: the box on job sites; on unless switched off
   $("offer").addEventListener("change", () => chrome.storage.local.set({ offer: $("offer").checked }));
   base = saved.base || DEFAULT_BASE;
@@ -261,7 +283,8 @@ async function start() {
   $("open-app").addEventListener("click", openApp);
   $("save-base").addEventListener("click", saveBase);
   $("text").addEventListener("input", showSize);
-  $("send").addEventListener("click", send);
+  $("send").addEventListener("click", () => send(false));
+  $("send-optimize").addEventListener("click", () => send(true));
   $("copy").addEventListener("click", copy);
   try {
     page = await readPage();

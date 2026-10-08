@@ -51,7 +51,33 @@ location (correct them if needed) and the text that will be sent, which you can 
   and lists it under Email JDs, ready to optimize. The button then reads **Sent ✓**, and it still
   does when you open the popup on that job again, so you can see what you already sent. **Send it
   again** is there if you need it (for example for a newer apply link).
+- **Send and optimize the resume:** does the same, and also has the app make a resume tailored
+  to this job, in the background. See "Send, optimize and apply" below.
 - **Copy text:** the text box, to the clipboard.
+
+## Send, optimize and apply
+
+1. On each job you like, press **Send and optimize the resume** (in the popup) or **Send +
+   optimize** (in the box on job sites). You can do this for several jobs one after another; you do
+   not have to wait.
+2. The app makes a resume for each job in the background, a few minutes each, and tells you when
+   one is ready.
+3. In the app, open **Applications**. Under **Ready** each job has its resume and an **Apply on the
+   site** link.
+4. To apply to several at once, tick them (or **Select all**) and press **Open selected: apply
+   pages + resumes**. Each apply page opens in its own tab and each resume is downloaded as a PDF.
+   Upload the resume on each page and submit it there yourself.
+5. Press **Mark selected as applied**; they move to History.
+
+Good to know:
+
+- The first time, Chrome may stop the extra tabs or downloads. Allow pop-ups and multiple
+  downloads for the app's address (the icons at the right of the address bar), then press again.
+- Optimizing uses the app's AI and costs more than a plain Send, so use it for jobs you mean to
+  apply to. A job you sent with plain Send can still be optimized later: its second button reads
+  **Optimize the resume for it too**.
+- Nothing is filled in or submitted on the job site for you.
+- A job is not optimized twice, and one you already applied to is not optimized again.
 
 ## It asks by itself on job sites
 
@@ -59,9 +85,9 @@ On **Indeed, LinkedIn, Dice, Glassdoor and ZipRecruiter** you do not need to cli
 When you open a job, a small box appears in the bottom right corner of the page:
 
 > **Send this job to AI Resume Builder?** - the job's title, company and location, and whether it
-> offers visa sponsorship - **Send** / **Not now**
+> offers visa sponsorship - **Send** / **Send + optimize** / **Not now**
 
-- Nothing is sent until you press **Send**. The box then tells you which profile it was saved for.
+- Nothing is sent until you press **Send** or **Send + optimize**. The box then tells you which profile it was saved for.
 - **Not now** (or the x) hides the box for that job until you load the page again.
 - No box for a job you already sent, or when you are not signed in to the extension.
 - To switch this off, untick the box under **Settings** in the popup. The icon keeps working.

@@ -1,6 +1,7 @@
 // Runs by itself on the job sites listed in manifest.json -> content_scripts (after extract.js and
 // sponsorship.js). When a job is open on the page it shows a small box in the corner: "Send this
-// job to AI Resume Builder?" with Send and Not now. Nothing is sent until Send is pressed.
+// job to AI Resume Builder?" with Send, Send + optimize (also queues it in the app's Applications,
+// where a resume is made for it) and Not now. Nothing is sent until one of the two is pressed.
 //
 // The box is not shown: when nobody is signed in to the extension, when the offer is switched off
 // (the popup's Settings), for a job this user already sent, and for a job they answered Not now
@@ -19,7 +20,7 @@
   const VISA_SAYS = { no: "Not offered", yes: "Offered", unknown: "Not mentioned" };
   const CSS = `
     :host { all: initial; }
-    .box { box-sizing: border-box; position: fixed; right: 16px; bottom: 16px; z-index: 2147483647; width: 320px; padding: 12px 14px;
+    .box { box-sizing: border-box; position: fixed; right: 16px; bottom: 16px; z-index: 2147483647; width: 360px; padding: 12px 14px;
       border: 1px solid #d5dceb; border-radius: 10px; background: #fff; color: #0f1b33;
       box-shadow: 0 8px 28px rgba(15, 27, 51, 0.22); font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     .head { display: flex; align-items: start; gap: 8px; margin-bottom: 4px; font-weight: 600; }
@@ -30,7 +31,7 @@
     .visa.no { border-color: #b3261e; background: #fdecea; color: #b3261e; }
     .visa.yes { border-color: #0f7a4a; background: #e3f6ec; color: #0f7a4a; }
     .row { display: flex; gap: 8px; }
-    button { flex: 1; padding: 7px 10px; border: 1px solid #d5dceb; border-radius: 6px; background: #fff; color: #0f1b33; font: inherit; cursor: pointer; }
+    button { flex: 1 1 auto; white-space: nowrap; padding: 7px 8px; border: 1px solid #d5dceb; border-radius: 6px; background: #fff; color: #0f1b33; font: inherit; cursor: pointer; }
     button:hover { border-color: #1d4fd8; }
     button:focus-visible { outline: 2px solid #1d4fd8; outline-offset: 1px; }
     button.primary { border-color: #1d4fd8; background: #1d4fd8; color: #fff; font-weight: 600; }
@@ -91,9 +92,12 @@
 
     const row = make("div", "row");
     const send = make("button", "primary", "Send");
+    const both = make("button", "", "Send + optimize");
     const later = make("button", "", "Not now");
-    send.type = later.type = "button";
-    row.append(send, later);
+    send.type = both.type = later.type = "button";
+    send.title = "Saves the job in the app";
+    both.title = "Also makes a resume for it in the background; it waits in the app under Applications, with the apply link";
+    row.append(send, both, later);
     box.append(head, role, visa, row);
     root.append(box);
     document.documentElement.append(host);
@@ -101,28 +105,31 @@
     const notNow = () => { dismissed.add(key); hide(); };
     close.addEventListener("click", notNow);
     later.addEventListener("click", notNow);
-    send.addEventListener("click", async () => {
+    const go = (button, optimize) => button.addEventListener("click", async () => {
       busy = true;
-      send.disabled = true;
-      send.textContent = "Sending…";
+      send.disabled = both.disabled = true;
+      button.textContent = "Sending…";
+      (optimize ? send : both).remove();
       later.remove();
-      const [text, kind] = await deliver(job, key);
+      const [text, kind] = await deliver(job, key, optimize);
       busy = false;
       if (showing !== key) return;   // the box was closed meanwhile
       row.replaceWith(make("p", `note ${kind}`.trim(), text));
       told = `${job.url}|${job.title}`;   // the answer stays until another job is opened, whatever it was
       if (kind === "good") setTimeout(() => { if (showing === key && host) { host.remove(); host = null; } }, 8000);
     });
+    go(send, false);
+    go(both, true);
   }
 
   // Send the job through background.js; returns [what to tell the user, good | bad | ""].
-  async function deliver(job, key) {
+  async function deliver(job, key, optimize) {
     let reply;
     try {
       reply = await chrome.runtime.sendMessage({ type: "rb-send", job: {
         url: job.url, title: [job.title, job.company].filter(Boolean).join(" - "), text: job.text,
         job_title: job.title, company_name: job.company, location: job.location, apply_url: job.apply?.url || "",
-      } });
+      }, optimize });
     } catch {
       return ["The extension was updated. Load this page again, then send.", "bad"];
     }
@@ -134,9 +141,16 @@
       dismissed.add(key);
       return [`Not sent. It offers no visa sponsorship (“${answer.reason}”), and your profiles skip such jobs.`, "bad"];
     }
-    const saved = await chrome.storage.local.get("sent");
-    const sent = Array.isArray(saved.sent) ? saved.sent : [];
-    await chrome.storage.local.set({ sent: [...sent.filter((k) => k !== key), key].slice(-SENT_KEPT) });
+    const saved = await chrome.storage.local.get(["sent", "optimized"]);
+    const add = (list) => [...(Array.isArray(list) ? list : []).filter((k) => k !== key), key].slice(-SENT_KEPT);
+    await chrome.storage.local.set({ sent: add(saved.sent), ...(answer.queued ? { optimized: add(saved.optimized) } : {}) });
+    if (optimize) {
+      const fit = Math.round((answer.fit || 0) * 100);
+      if (answer.queued === true) return [`Saved for “${answer.profile_name || answer.profile}” (fit ${fit}%). A resume is being made; it will be in the app under Applications, with the apply link.`, "good"];
+      if (answer.queued === "active") return ["This job is already in Applications in the app.", "good"];
+      if (answer.queued === "applied") return ["You already applied to this job (Applications, History).", "good"];
+      return ["Saved, but none of your profiles fits it, so no resume was made.", ""];
+    }
     if (answer.already) return ["You already sent this job. It is in Email JDs.", "good"];
     if (!answer.profile) return ["Saved, but none of your profiles fits it. In Email JDs you can give it to a profile yourself.", ""];
     return [`Saved for your profile “${answer.profile_name || answer.profile}” (fit ${Math.round((answer.fit || 0) * 100)}%).`, "good"];

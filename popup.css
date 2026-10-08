@@ -69,7 +69,8 @@ button:disabled { opacity: 0.55; cursor: default; }
 button.primary { width: 100%; margin-bottom: 8px; border-color: var(--brand); background: var(--brand); color: #fff; font-weight: 600; }
 button.primary.done { border-color: var(--good); background: var(--good); opacity: 1; }
 button.primary:hover:not(:disabled) { background: var(--brand-strong); }
-button.wide { width: 100%; }
+button.wide { width: 100%; margin-bottom: 8px; }
+button.wide.done { border-color: var(--good); color: var(--good); opacity: 1; }
 button.link { flex: none; padding: 2px 4px; border: 0; background: none; color: var(--brand); }
 
 .note { margin: 10px 0 0; padding: 8px 10px; border-radius: 6px; background: var(--brand-soft); }
