@@ -5,14 +5,38 @@ your AI Resume Builder as a role.
 
 ## Install
 
-1. Download this folder (Code -> Download ZIP, then unzip; or `git clone`).
-2. In Chrome open `chrome://extensions` and switch on **Developer mode**.
-3. Click **Load unpacked** and choose the folder.
-4. Log in to AI Resume Builder in the same Chrome. The extension uses that login and never sees
-   your password.
-5. Click the extension's icon, open **Settings**, and enter where the app runs (default
-   `http://localhost:8000`; from another computer, the app's Tailscale link). Chrome asks once
-   for permission to reach an address that is not this computer.
+**1. Get the files onto your computer**
+
+1. Open https://github.com/online-resume/chrome_ext in your browser.
+2. Click the green **Code** button near the top right of the file list (it is a button, not a
+   folder), then click **Download ZIP**.
+3. Open your Downloads folder and double-click `chrome_ext-main.zip`. You now have a folder
+   called `chrome_ext-main`. Inside it you should see `manifest.json`, `popup.html` and the
+   other files listed at the bottom of this page.
+4. Move that folder somewhere it can stay (for example Documents). Chrome reads the extension
+   from this folder every time it starts, so do not delete it afterwards.
+
+**2. Add it to Chrome**
+
+1. In Chrome's address bar type `chrome://extensions` and press Enter.
+2. Switch on **Developer mode** (top right corner of that page).
+3. Click **Load unpacked** (top left) and choose the `chrome_ext-main` folder itself, the one
+   that has `manifest.json` directly inside it.
+4. Click the puzzle-piece icon in Chrome's toolbar and pin **AI Resume Builder - Page Clipper**.
+
+**3. Connect it to the app**
+
+1. In the same Chrome, open AI Resume Builder and log in. The extension uses that login and
+   never sees your password.
+2. Click the extension's icon, open **Settings** at the bottom, and enter where the app runs:
+   - on the computer that runs the app: `http://localhost:8000` (already filled in);
+   - on another computer: the app's Tailscale link, the `https://....ts.net` address shown when
+     the app starts.
+3. Press **Save**. For an address that is not this computer, Chrome asks once for permission to
+   reach it: allow it.
+
+**Updating later:** download the ZIP again, replace the files in the folder, then press the
+reload arrow on the extension's card in `chrome://extensions`.
 
 ## Use
 
