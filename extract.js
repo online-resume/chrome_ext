@@ -3,12 +3,14 @@
 // plain data. Nothing here changes the page or calls a server.
 //
 // Result: {url, page_url, title, language, captured_at, selection, job, meta, structured_data,
-//          headings, text: {panel, job, main, full}, links, images, tables, counts}
+//          apply, headings, text: {panel, job, main, full}, links, images, tables, counts}
 //   job   the job's title, company, location, ...: from the job panel on the page (SITES) and the
 //         page's own job data (schema.org JobPosting)
 //   text  panel = the one job that is open on the page (job boards show a list of postings next
 //         to it; the list is left out), job = the description in the page's job data,
 //         main = the page's main part, full = the whole page
+//   apply {url, label}: where the page's Apply button goes (null when it has none, or when the
+//         button opens a form on the page instead of a link)
 //   url   the address of that one job when the site has one (SITES), else the page's address
 (() => {
   const LIMITS = { links: 2000, images: 1000, tables: 100, rows: 500, text: 400000 };
@@ -58,6 +60,7 @@
       company: ['[data-testid="vj-company-name"]', '[data-testid="inlineHeader-companyName"]'],
       location: ['[data-testid="inlineHeader-companyLocation"]', '[data-testid="job-location"]'],
       around: ['[data-testid="company-info-metadata"]'],
+      apply: ['[data-testid="viewjob-apply"]', '[data-testid="viewjob-indeed-apply"]', "#applyButtonLinkContainer a"],
       leave: '[data-testid^="job-card-"]',
       url: () => { const id = param("vjk", "jk"); return id && `${location.origin}/viewjob?jk=${encodeURIComponent(id)}`; } },
     { host: /(^|\.)linkedin\.com$/,
@@ -65,9 +68,11 @@
       title: [".job-details-jobs-unified-top-card__job-title", ".jobs-unified-top-card__job-title", ".top-card-layout__title"],
       company: [".job-details-jobs-unified-top-card__company-name", ".jobs-unified-top-card__company-name", ".topcard__org-name-link"],
       location: [".topcard__flavor--bullet"],
+      apply: ["a.jobs-apply-button", "a.apply-button", ".top-card-layout__cta-container a"],
       url: () => { const id = param("currentJobId"); return id && `${location.origin}/jobs/view/${encodeURIComponent(id)}/`; } },
     { host: /(^|\.)dice\.com$/,
       panel: ['[data-testid="jobDescriptionHtml"]', "#jobDescription"],
+      apply: ['a[data-cy="apply-button"]', "apply-button-wc a"],
       title: ['[data-cy="jobTitle"]'], company: ['[data-cy="companyNameLink"]'], location: ['[data-cy="location"]'] },
     { host: /(^|\.)glassdoor\.[a-z.]+$/,
       panel: ['[class*="JobDetails_jobDescription"]', '[data-test="jobDescriptionContent"]'],
@@ -95,6 +100,20 @@
     onPage.company ||= lines[0] || "";
     onPage.location ||= lines.find((line) => line !== onPage.company) || "";
   }
+  // The Apply button's address: the site's own button, else the first link on the page whose
+  // words begin with "Apply" (on a page that is not a known list of postings, that is this job's).
+  function applyLink() {
+    // a button that leads to a sign-in page (the user is logged out of the site) is not an apply link
+    const web = (node) => node?.tagName === "A" && /^https?:/.test(absolute(node.getAttribute("href")))
+      && !/^\/(auth|login|signin|sign-in|account\/login)\b/i.test(new URL(absolute(node.getAttribute("href"))).pathname);
+    let button = (site?.apply || []).map((selector) => document.querySelector(selector)).find(web);
+    if (!button && !known) {
+      button = [...document.querySelectorAll("a[href]")].find((node) => web(node) && node.getClientRects().length
+        && /^(easy |easily |quick )?apply\b/i.test(tidy(node.innerText || node.getAttribute("aria-label"))));
+    }
+    return button ? { url: absolute(button.getAttribute("href")), label: tidy(button.innerText || button.getAttribute("aria-label")).slice(0, 80) || "Apply" } : null;
+  }
+
   // The open job's text. A site may put other postings inside the same panel ("more jobs like
   // this"): the parts of the panel that hold what `leave` names are left out.
   function panelText() {
@@ -203,6 +222,7 @@
     captured_at: new Date().toISOString(),
     selection: tidy(window.getSelection()?.toString()),
     job,
+    apply: applyLink(),
     meta,
     structured_data: structured,
     headings,

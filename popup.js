@@ -53,7 +53,8 @@ function showPage() {
   $("page-title").title = page.url;
   const c = page.counts;
   $("found").textContent = `Found: ${c.words.toLocaleString()} words, ${c.links} links, ${c.images} images, ${c.tables} tables`
-    + (page.text.panel ? ". Only the open job will be sent, not the list beside it." : page.job ? ", job details" : "");
+    + (page.text.panel ? ". Only the open job will be sent, not the list beside it." : page.job ? ", job details" : "")
+    + (page.apply ? ` Apply link found (${page.apply.label}).` : " No apply link found; the job's page is kept as the link.");
   $("job-title").value = page.job?.title || "";
   $("company").value = page.job?.company || "";
   $("location").value = page.job?.location || "";
@@ -97,6 +98,7 @@ async function send() {
       body: JSON.stringify({
         url: page.url, title: roleName() || page.title, text: $("text").value.trim(),
         job_title: $("job-title").value.trim(), company_name: $("company").value.trim(), location: $("location").value.trim(),
+        apply_url: page.apply?.url || "",
       }),
     });
   } catch {

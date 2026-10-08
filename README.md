@@ -60,6 +60,19 @@ that is open on this page**; the other choices (main part, whole page) are still
 Indeed has been checked on its live page. If one of the other sites still sends too much,
 select the job's text with the mouse before clicking the icon and choose **The text I selected**.
 
+## The apply link
+
+The address behind the page's **Apply** button is sent with the job, and the app shows it on the
+role as **Apply**. For it to be found:
+
+- be logged in to the job site (logged out, the button only leads to a sign-in page, and no
+  apply link is kept);
+- the button must be a link. A button that opens a form on the page (LinkedIn's Easy Apply) has
+  no address; the role's own link then takes you to the job.
+
+The popup says whether an apply link was found. Sending the same job again replaces the link
+with the current one.
+
 ## What it may do
 
 It reads a page only when you click the icon on it, and calls only the app's address. Chrome's
